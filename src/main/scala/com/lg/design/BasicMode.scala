@@ -34,10 +34,10 @@ abstract class BasicMode[VD1: ClassTag, ED1: ClassTag, VD2: ClassTag, ED2: Class
   initialize()
 
   def initialize() = {
-    val sparkSession = SparkSession.builder().master("spark://192.168.16.187:7077").
+    val sparkSession = SparkSession.builder().master("spark://192.168.16.1:7077").
       appName("taxCompliance").
       config("spark.jars", "E:\\毕设\\taxCompliance\\out\\artifacts\\taxCompliance_jar\\taxCompliance.jar").
-      config("spark.cores.max", "34").
+      config("spark.cores.max", "36").
       config("spark.executor.memory", "12g").
       config("spark.driver.memory", "10g").
       config("spark.driver.maxResultSize", "12g").

@@ -20,7 +20,7 @@ object ConstructFTGN {
     val hdfsDir: String = Parameters.Dir
 
     @transient
-    val sparkSession = SparkSession.builder().master("spark://192.168.16.187:7077").
+    val sparkSession = SparkSession.builder().master("spark://192.168.16.1:7077").
       appName("taxCompliance").
       config("spark.jars", "E:\\毕设\\taxCompliance\\out\\artifacts\\taxCompliance_jar\\taxCompliance.jar").
       config("spark.cores.max", "36").
@@ -38,7 +38,8 @@ object ConstructFTGN {
     if (!HdfsTools.exist(sc, s"${hdfsDir}/ftgnVertices")) {
       val tgn = HdfsTools.getFromObjectFile[V_TGNAttr, E_TGNAttr](sc, s"${hdfsDir}/tgnVertices", s"${hdfsDir}/tgnEdges")
       val gt_compliance = sparkSession.sparkContext.textFile(s"${hdfsDir}/compliance").filter(!_.contains("nsrdzdah")).
-        map(_.split(",")).filter(_.length == 3).map(row => (row(0), row(1).toDouble, row(2).toDouble.toInt))
+        map(_.split(",")).filter(_.length == 3).map(row => (row(0), row(2).toDouble, row(1).toDouble.toInt))
+
       val edgetemp = tgn.mapEdges(e => E_TGNAttr.fusion(e)).edges.mapValues(x => E_FTGNAttr(x.attr._1))
       val vertextemp = tgn.vertices.map(v => (v._2.sbh, (v._1, v._2.compliance, v._2.wtbz))).leftOuterJoin(gt_compliance.map(v => (v._1, (v._2, v._3)))).map {
         x => {
@@ -56,9 +57,9 @@ object ConstructFTGN {
       println("无问题：" + fixEdgeWeightGraph.vertices.filter(_._2.wtbz == 0).count)
       println("未标记：" + fixEdgeWeightGraph.vertices.filter(_._2.wtbz == -1).count)
       //节点数：521260       边数：2501885
-      //有问题：2462
-      //无问题：147
-      //未标记：518651
+      //有问题：3437
+      //无问题：3226
+      //未标记：514597
       HdfsTools.saveAsObjectFile(fixEdgeWeightGraph, sc, s"${hdfsDir}/ftgnVertices", s"${hdfsDir}/ftgnEdges")
     }
 

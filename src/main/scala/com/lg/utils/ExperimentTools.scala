@@ -3,10 +3,13 @@ package com.lg.utils
 import java.io.PrintWriter
 
 import com.lg.design.impl.{E_ResultAttr, V_ResultAttr}
-import org.apache.spark.graphx.Graph
+import org.apache.spark.SparkContext
+import org.apache.spark.graphx.{Graph, VertexId}
 import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
+import org.apache.spark.rdd.RDD
 
 import scala.collection.Seq
+import scala.collection.mutable.HashMap
 
 /**
   * Created by lg on 2018/12/5.
@@ -57,7 +60,32 @@ object ExperimentTools {
     val auc = metrics.areaUnderROC
     val pg = 2 * (new BinaryClassificationMetrics(scoreAndLabels.filter(_._1 < t)).areaUnderROC()) - 1
     println(" P(test):" + P_test + " N(test):" + N_test + " TP:" + TP + " TN:" + TN + " FP:" + FP + " FN:" + FN + " recall:" + recall + " f1:" + f1 + " accuracy:" + accuracy + " precision:" + precision + " ks:" + ks + " bs:" + bs + " AUC:" + auc + " pg:" + pg)
-    writer.write("\n" + b + "," + threashold + "," + P_test + "," + N_test + "," + TP + "," + TN + "," + FP + "," + FN + "," + recall + "," + f1 + "," + accuracy + "," + precision + "," + ks + "," + bs + "," + auc + "," + pg)
+    writer.write("\n"+i+"," + b + "," + threashold + "," + P_test + "," + N_test + "," + TP + "," + TN + "," + FP + "," + FN + "," + recall + "," + f1 + "," + accuracy + "," + precision + "," + ks + "," + bs + "," + auc + "," + pg)
+  }
+
+  def verify(score:RDD[(VertexId,Double,Double,Int)])= {
+    /**
+      * id,old_score,new_score,wtbz
+      */
+    val A = score.map(x=>(x._2,(x._1,x._4))).repartition(1).sortByKey(false).map(x=>(x._2._1,x._1,x._2._2))
+    val B = score.map(x => (x._3, (x._1, x._4))).repartition(1).sortByKey(false).map(x => (x._2._1, x._1, x._2._2))
+    //按100名波动清况
+    var i = 10
+    var result = HashMap[VertexId, (Double, Double)]() //节点id,原始命中率,最大流命中率，
+    var number = A.count()
+    if (number > 1000) {
+      number = 1000
+    }
+    while (i <= number) {
+      val PA = A.take(i).filter(_._3 ==1).size / i.toDouble
+
+      val PB = B.take(i).filter(_._3 == 1).size / i.toDouble
+      result.put(i, (PA.%(3),  PB.%(3)))
+      println(i+","+PA.%(3)+","+ PB.%(3))
+      i += 50
+    }
+
+    result.toSeq
   }
 
 

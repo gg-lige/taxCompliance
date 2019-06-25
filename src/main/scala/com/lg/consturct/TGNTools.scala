@@ -35,7 +35,7 @@ object TGNTools {
       else //纳税人
         Seq[Seq[(VertexId, Double)]]()
     }.subgraph(epred = triplet =>
-      triplet.attr.isAntecedent(weight)).mapEdges(edge => Seq(edge.attr.w_legal, edge.attr.w_invest, edge.attr.w_stockholder).max).cache() //1.
+      triplet.attr.isAntecedent(weight)).mapEdges(edge => Seq(edge.attr.w_legal, edge.attr.w_invest, edge.attr.w_stockholder).max).cache() //1.路径为1的边有多种关系时，取其中权重最大的
 
     //信息（公司id,Map(自然人id,权重)）：此处无法使用反向获取路径，,即使用正向获取路径，要求源点为人 ，maxIteration表示前件路径最长长度为3
     val messageOfControls = getPath(remove0Degree(initialGraph), sendPaths, reducePaths, maxIteration = 3)
@@ -61,8 +61,8 @@ object TGNTools {
     def computeCohesionWeight(vid: VertexId, d: Seq[((Long, Long), Double)]) = {
       var overlap = d
       //构造由 reverselist 到 forwardlist 的链表组合
-      val reverselist = overlap.groupBy(_._1._2).filter(_._1 == vid).flatMap(_._2.map(x => (x._1._1, x._2)))
-      val forwardlist = overlap.groupBy(_._1._1).filter(_._1 == vid).flatMap(_._2.map(x => (x._1._2, x._2)))
+      val reverselist = overlap.groupBy(_._1._2).filter(_._1 == vid).flatMap(_._2.map(x => (x._1._1, x._2))) //按尾聚合
+      val forwardlist = overlap.groupBy(_._1._1).filter(_._1 == vid).flatMap(_._2.map(x => (x._1._2, x._2)))  //按头聚合
       val result =
         for (head <- reverselist) yield
           for (last <- forwardlist) yield {

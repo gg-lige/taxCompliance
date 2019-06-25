@@ -19,7 +19,7 @@ object ConstructTGN extends Serializable {
     val hdfsDir: String = Parameters.Dir
 
     @transient
-    val sparkSession = SparkSession.builder().master("spark://192.168.16.187:7077").
+    val sparkSession = SparkSession.builder().master("spark://192.168.16.1:7077").
       appName("taxCompliance").
       config("spark.jars", "E:\\毕设\\taxCompliance\\out\\artifacts\\taxCompliance_jar\\taxCompliance.jar").
       config("spark.cores.max", "36").
@@ -59,6 +59,24 @@ object ConstructTGN extends Serializable {
       //将纳税人全局网络中的(节点,纳税人电子档案号)输入至数据库【节点为纳税遵从个体评价的测试集】  513180
       TGNTools.saveVertex(sparkSession, tgn.vertices.filter{case(vid,vattr)=>lang3.StringUtils.isNumeric(vattr.sbh)}.map(v=>(BigDecimal(v._2.sbh).longValue(),v._1)).reduceByKey(_.min(_)).map(v=>(v._2,v._1)) )
     }
+
+
+    val tgn = HdfsTools.getFromObjectFile[V_TGNAttr, E_TGNAttr](sc, s"${hdfsDir}/tgnVertices", s"${hdfsDir}/tgnEdges")
+
+    tgn.edges.map(_.srcId).union(tgn.edges.map(_.dstId)).distinct().count()
+    tgn.degrees.filter(_._2==0).count()
+
+    tgn.edges.filter(_.attr.w_cohesion!=0).count
+    tgn.edges.filter(_.attr.w_stockholder!=0).count
+    tgn.edges.filter(_.attr.w_invest!=0).count
+    tgn.edges.filter(_.attr.w_trade!=0).count
+    tgn.edges.count()
+
+    val components = tgn.connectedComponents()
+    val b= components.vertices.groupBy(_._2).map(_._2.size)
+
+    b.map(x=>(x,1)).reduceByKey(_+_).sortByKey().map(x=>x._1+","+x._2).repartition(1).saveAsTextFile(s"${hdfsDir}/connectedComTGN.csv")
+
 
   }
 

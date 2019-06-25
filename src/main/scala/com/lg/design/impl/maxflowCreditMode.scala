@@ -28,13 +28,13 @@ object maxflowCreditMode {
     val hdfsDir: String = Parameters.Dir
 
     val outputVerifyMode = true
-    if (outputVerifyMode == true) {
+    if (outputVerifyMode == false) {
       // i，B，threshold 对 MaxflowCredit 实验结果的影响
       val writer = new PrintWriter(new File("E:\\毕设\\taxCompliance\\result\\ensembleMaxflow.csv"))
-      writer.write("b,threashold,P_test,N_test,TP,TN,FP,FN,recall,f1,accuracy,precision,ks,bs,auc,pg")
-      for (i <- List(3)) { //gain 衰减函数  : 1,2,3,4
-        val Bs = List(0.7) //B 分配百分比  ： 0.1，0.3，0.5，0.7，0.9
-      val threasholds = List(0.7) //threasholds 阈值分配百分比 ： 0D, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9
+      writer.write("i,b,threashold,P_test,N_test,TP,TN,FP,FN,recall,f1,accuracy,precision,ks,bs,auc,pg")
+      for (i <- List(1,2,3,4)) { //gain 衰减函数  : 1,2,3,4
+        val Bs = List(0.1,0.3,0.5,0.7,0.9) //B 分配百分比  ： 0.1，0.3，0.5，0.7，0.9
+      val threasholds = List(0.1,0.3,0.5,0.7,0.9) //threasholds 阈值分配百分比 ： 0D, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9
         for (b <- Bs) {
           for (threashold <- threasholds) {
             val instance = new maxflowCreditMode(false, false, i, b, threashold)
@@ -47,17 +47,16 @@ object maxflowCreditMode {
       }
       writer.close()
     }
-    if (outputVerifyMode == false) {
+    if (outputVerifyMode == true) {
       //上述最优 i,B,threshold 下 TOP1-TOP300 命中率
-      val besti = 0
-      val bestb = 0d
-      val bestthreashold = 0d
+      val besti = 3
+      val bestb = 0.7d
+      val bestthreashold = 0.7d
       val instance = new maxflowCreditMode(false, false, besti, bestb, bestthreashold)
       val ftgn = instance.getInputGraph(instance.sparkSession)
       val result = instance.computeGraph(ftgn)
-      result.vertices.map(v => (v._2.new_fz, v._1, v._2.old_fz, v._2.wtbz)).repartition(1).sortBy(_._1).map { line =>
-        (line._2, line._3, line._1, line._4)
-      }.repartition(1).saveAsTextFile(s"${hdfsDir}/TOP300.csv")
+      val Top=ExperimentTools.verify(result.vertices.map(v => ( v._1, v._2.old_fz,v._2.new_fz, v._2.wtbz)))
+      instance.sparkSession.sparkContext.parallelize(Top).saveAsTextFile(s"${hdfsDir}/TOP300.csv")
     }
 
   }
@@ -65,7 +64,7 @@ object maxflowCreditMode {
 }
 
 class maxflowCreditMode(val forceReConstruct: Boolean = false,
-                        val forceReAdjust: Boolean = false, val i: Int = 3, val b: Double = 0D, threashold: Double = 0D) extends BasicMode[V_FTGNAttr, E_FTGNAttr, V_ResultAttr, E_ResultAttr] {
+                        val forceReAdjust: Boolean = false, val i: Int = 3, val b: Double = 0.7D, threashold: Double = 0.7D) extends BasicMode[V_FTGNAttr, E_FTGNAttr, V_ResultAttr, E_ResultAttr] {
   val hdfsDir: String = Parameters.Dir
 
   override def getInputGraph(sparkSession: SparkSession): Graph[V_FTGNAttr, E_FTGNAttr] = {
@@ -178,13 +177,13 @@ class maxflowCreditMode(val forceReConstruct: Boolean = false,
     //三层邻居
     val neighborPair3 = neighborPair2.map(x => (x._2._1, x._1)).join(neighborPair1).map(x => (x._2._1, x._2._2)).distinct
     //四层邻居
-    val neighborPair4 = neighborPair3.map(x => (x._2._1, x._1)).join(neighborPair1).map(x => (x._2._1, x._2._2)).distinct
-    //五层邻居
-    val neighborPair5 = neighborPair4.map(x => (x._2._1, x._1)).join(neighborPair1).map(x => (x._2._1, x._2._2)).distinct
-    //六层邻居
-    val neighborPair6 = neighborPair5.map(x => (x._2._1, x._1)).join(neighborPair1).map(x => (x._2._1, x._2._2)).distinct
+//    val neighborPair4 = neighborPair3.map(x => (x._2._1, x._1)).join(neighborPair1).map(x => (x._2._1, x._2._2)).distinct
+//    //五层邻居
+//    val neighborPair5 = neighborPair4.map(x => (x._2._1, x._1)).join(neighborPair1).map(x => (x._2._1, x._2._2)).distinct
+//    //六层邻居
+//    val neighborPair6 = neighborPair5.map(x => (x._2._1, x._1)).join(neighborPair1).map(x => (x._2._1, x._2._2)).distinct
     //后面构子图时为中心节点添加边权重，因为前面只选择了前6名的较高权重，有可能把中心节点删除掉
-    val neighborPairgroup = neighborPair1.union(neighborPair2).union(neighborPair3).union(neighborPair4).union(neighborPair5).union(neighborPair6).distinct
+    val neighborPairgroup = neighborPair1.union(neighborPair2).union(neighborPair3).distinct//.union(neighborPair4).union(neighborPair5).union(neighborPair6).distinct
     val neighborPair = neighborPairgroup.join(fixEdgeWeightGraph.vertices).map(v => (v._1, (v._2._1, v._2._2)))
 
     //  .distinct//
